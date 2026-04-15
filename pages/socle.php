@@ -383,6 +383,17 @@ require '../includes/nav.php';
 
         </div>
 
+        <div class="quiz-cta">
+            <div class="quiz-cta-inner">
+                <span class="quiz-cta-icon">⬡</span>
+                <div class="quiz-cta-text">
+                    <strong>Prêt à te tester ?</strong>
+                    <span>Lance le quiz sur <em>Le Socle</em> — 10 questions aléatoires.</span>
+                </div>
+                <a href="quiz.php?theme=socle" class="quiz-cta-btn">Démarrer le quiz →</a>
+            </div>
+        </div>
+
     </div><!-- /.content -->
 </main>
 
