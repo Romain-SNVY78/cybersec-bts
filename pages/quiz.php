@@ -277,6 +277,48 @@ $ALL_QUESTIONS = [
         ['q' => 'Lequel est un algorithme de hachage considéré comme sûr pour les mots de passe ?',
          'o' => ['MD5', 'SHA-1', 'bcrypt', 'Base64'],
          'a' => 2, 'exp' => 'MD5 et SHA-1 sont cassés (collisions). Base64 est un encodage, pas un hachage. bcrypt, scrypt et Argon2 sont conçus pour être lents et résistants au brute force.'],
+
+        /* ── Nouvelles questions : SQL avancé ── */
+        ['q' => 'Quelle est la différence entre WHERE et HAVING en SQL ?',
+         'o' => ['WHERE et HAVING sont identiques', 'WHERE filtre les lignes avant regroupement ; HAVING filtre les groupes après agrégation', 'HAVING s\'utilise sans GROUP BY ; WHERE s\'utilise avec GROUP BY', 'WHERE est pour les chaînes ; HAVING est pour les nombres'],
+         'a' => 1, 'exp' => 'WHERE est évalué avant le GROUP BY (filtre les lignes). HAVING est évalué après le GROUP BY (filtre les groupes issus de l\'agrégation).'],
+        ['q' => 'Quelle requête SQL permet de détecter les IPs avec plus de 50 échecs de connexion ?',
+         'o' => ['SELECT ip FROM connexions WHERE COUNT(*) > 50', 'SELECT ip_source, COUNT(*) AS t FROM connexions WHERE succes=0 GROUP BY ip_source HAVING t > 50', 'SELECT ip_source FROM connexions HAVING COUNT > 50', 'SELECT * FROM connexions GROUP BY ip_source WHERE tentatives > 50'],
+         'a' => 1, 'exp' => 'Il faut GROUP BY pour regrouper par IP, COUNT(*) pour compter, et HAVING (pas WHERE) pour filtrer les groupes après agrégation.'],
+        ['q' => 'En SQL, comment supprimer les tokens de réinitialisation créés il y a plus d\'1 heure ?',
+         'o' => ['DELETE FROM reset_tokens WHERE created_at < DATE_SUB(NOW(), 1)', 'DELETE FROM reset_tokens WHERE created_at < NOW() - INTERVAL 1 HOUR', 'DELETE FROM reset_tokens WHERE DATEDIFF(created_at, NOW()) > 1', 'DELETE FROM reset_tokens WHERE created_at < CURRENT_DATE'],
+         'a' => 1, 'exp' => 'La syntaxe MySQL correcte est : NOW() - INTERVAL 1 HOUR. Cela sélectionne toutes les lignes dont created_at est antérieur à "il y a 1 heure".'],
+        ['q' => 'Un trigger SQL de type AFTER UPDATE sur une table "comptes" sert à :',
+         'o' => ['Empêcher toute modification sur la table', 'Recopier automatiquement l\'ancienne valeur dans une table d\'historique après chaque modification', 'Mettre à jour la table avant que la requête ne s\'exécute', 'Générer automatiquement les clés primaires'],
+         'a' => 1, 'exp' => 'Un trigger AFTER UPDATE s\'exécute après la modification. On utilise OLD.colonne pour accéder à l\'ancienne valeur — idéal pour historiser les changements (audit trail).'],
+        ['q' => 'Dans un trigger UPDATE, OLD.colonne et NEW.colonne désignent respectivement :',
+         'o' => ['La valeur dans l\'ancienne table et la nouvelle table', 'La valeur avant modification et la valeur après modification', 'La colonne d\'origine et la colonne de destination', 'Deux tables différentes liées par une clé étrangère'],
+         'a' => 1, 'exp' => 'OLD.colonne = valeur avant la modification (avant UPDATE/DELETE). NEW.colonne = valeur après la modification (après INSERT/UPDATE).'],
+
+        /* ── Nouvelles questions : Mot de passe oublié ── */
+        ['q' => 'Pourquoi répondre "Si un compte existe, un email a été envoyé" même si l\'adresse est inconnue ?',
+         'o' => ['Pour économiser les emails', 'Pour éviter l\'énumération de comptes (ne pas révéler si un email est inscrit)', 'C\'est une obligation légale RGPD', 'Pour améliorer les performances du serveur'],
+         'a' => 1, 'exp' => 'Un message différent selon que l\'adresse existe ou non permettrait à un attaquant de tester des listes d\'emails et savoir qui est inscrit (account enumeration).'],
+        ['q' => 'Un token de réinitialisation de mot de passe doit être :',
+         'o' => ['L\'ID utilisateur encodé en base64', 'Cryptographiquement aléatoire, à usage unique et avec une durée de validité courte (15-60 min)', 'Le MD5 de l\'email et de la date', 'Un nombre aléatoire à 4 chiffres envoyé par SMS'],
+         'a' => 1, 'exp' => 'Le token doit être imprévisible (random_bytes), non réutilisable (supprimé après usage) et expirant rapidement pour limiter la fenêtre d\'attaque.'],
+        ['q' => 'Pourquoi hacher le token de réinitialisation avant de le stocker en base de données ?',
+         'o' => ['Pour gagner de la place en base', 'Si la base est compromise, l\'attaquant ne peut pas utiliser les tokens stockés directement', 'Pour accélérer la vérification', 'Ce n\'est pas nécessaire, les tokens ne sont pas sensibles'],
+         'a' => 1, 'exp' => 'En cas de fuite de la base, hacher le token empêche l\'attaquant de l\'utiliser pour réinitialiser des mots de passe. On compare le hash du token reçu avec le hash stocké.'],
+
+        /* ── Nouvelles questions : DELETE/PUT ── */
+        ['q' => 'Qu\'est-ce que le "mass assignment" dans une API REST ?',
+         'o' => ['Une attaque DDoS sur l\'API', 'L\'injection de champs sensibles non prévus (ex : role, solde) via le body JSON quand l\'API ne filtre pas les entrées', 'L\'envoi de plusieurs requêtes en parallèle', 'Un problème de pagination sur les grandes collections'],
+         'a' => 1, 'exp' => 'Le mass assignment survient quand l\'API lie directement tous les champs JSON à un modèle sans whitelist : un attaquant peut injecter des champs comme "role":"admin".'],
+        ['q' => 'Qu\'est-ce qu\'un "soft delete" et pourquoi est-il préférable pour les données importantes ?',
+         'o' => ['Supprimer sans transaction SQL', 'Marquer la ligne comme supprimée (colonne deleted_at) sans l\'effacer physiquement, permettant la restauration et la traçabilité', 'Supprimer uniquement les données en cache', 'Utiliser DELETE avec une clause WHERE très précise'],
+         'a' => 1, 'exp' => 'Le soft delete conserve la ligne en base avec une date de suppression. La suppression est réversible, chaque action est traçable, et les relations ne sont pas cassées.'],
+        ['q' => 'Quel code HTTP doit retourner un endpoint DELETE si l\'utilisateur n\'est pas autorisé ?',
+         'o' => ['200 OK', '404 Not Found', '403 Forbidden', '500 Internal Server Error'],
+         'a' => 2, 'exp' => '403 Forbidden = authentifié mais pas autorisé. 401 Unauthorized = non authentifié. Éviter 404 pour cacher l\'existence de la ressource peut être judicieux, mais 403 est le code sémantiquement correct.'],
+        ['q' => 'Quelle différence fondamentale entre PUT et PATCH ?',
+         'o' => ['PUT est sécurisé, PATCH ne l\'est pas', 'PUT remplace la ressource entière ; PATCH applique une modification partielle', 'PATCH est plus rapide que PUT', 'PUT est pour les créations, PATCH pour les suppressions'],
+         'a' => 1, 'exp' => 'PUT remplace toute la ressource (omettre un champ = effacer ce champ). PATCH ne modifie que les champs envoyés dans la requête — préférable pour les mises à jour partielles.'],
     ],
 ];
 

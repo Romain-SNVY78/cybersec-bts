@@ -169,6 +169,57 @@ require '../includes/nav.php';
 
         </div>
 
+        <!-- Section 5.1 B² : SQL avancé et triggers -->
+        <div class="sh"><h2>SQL avancé et triggers</h2><div class="sh-line"></div><span class="sh-cnt">Analyse &amp; historisation</span></div>
+        <div class="grid-topics">
+
+            <div class="tc">
+                <div class="tc-head"><span class="tc-dot"></span>
+                    <h3>Requêtes SQL d'analyse : COUNT, GROUP BY, HAVING et dates</h3>
+                    <span class="tc-chev">▼</span>
+                </div>
+                <div class="tc-body"><div class="tc-body-inner">
+                    <p>Ces fonctions SQL permettent d'analyser des volumes de données pour détecter des comportements anormaux — compétence directement utile lors d'une investigation sur des logs ou des tables de connexion.</p>
+                    <p><strong>COUNT</strong> — compter le nombre de lignes ou de valeurs :</p>
+                    <p><code>SELECT COUNT(*) FROM connexions WHERE succes = 0;</code></p>
+                    <p><strong>GROUP BY</strong> — regrouper les résultats par valeur d'une colonne :</p>
+                    <p><code>SELECT ip_source, COUNT(*) AS tentatives<br>FROM connexions<br>GROUP BY ip_source;</code></p>
+                    <p><strong>HAVING</strong> — filtrer les groupes <em>après</em> agrégation (l'équivalent de <code>WHERE</code> pour les fonctions d'agrégation). <code>WHERE</code> filtre les lignes avant regroupement, <code>HAVING</code> filtre les groupes après :</p>
+                    <p><code>SELECT ip_source, COUNT(*) AS tentatives<br>FROM connexions<br>WHERE succes = 0<br>GROUP BY ip_source<br>HAVING tentatives &gt; 50<br>ORDER BY tentatives DESC;</code><br>→ Détecte les IPs ayant réalisé plus de 50 échecs de connexion (brute-force).</p>
+                    <p><strong>Fonctions de dates courantes :</strong></p>
+                    <ul>
+                        <li><code>NOW()</code> / <code>CURRENT_TIMESTAMP</code> : date et heure actuelles.</li>
+                        <li><code>DATE(colonne)</code> : extraire uniquement la partie date.</li>
+                        <li><code>DATEDIFF(date1, date2)</code> : différence en jours entre deux dates.</li>
+                        <li><code>DATE_ADD(date, INTERVAL n DAY)</code> : ajouter un délai (ex : calcul d'expiration d'un token).</li>
+                        <li><code>colonne &lt; NOW() - INTERVAL 1 HOUR</code> : lignes datant de plus d'une heure.</li>
+                    </ul>
+                    <p>Application sécurité — purger les tokens de réinitialisation expirés :<br><code>DELETE FROM reset_tokens WHERE created_at &lt; NOW() - INTERVAL 1 HOUR;</code></p>
+                </div></div>
+            </div>
+
+            <div class="tc">
+                <div class="tc-head"><span class="tc-dot"></span>
+                    <h3>Triggers SQL et historisation des données</h3>
+                    <span class="tc-chev">▼</span>
+                </div>
+                <div class="tc-body"><div class="tc-body-inner">
+                    <p>Un <strong>trigger</strong> (déclencheur) est une procédure stockée qui s'exécute <em>automatiquement</em> en réaction à un événement sur une table : <code>INSERT</code>, <code>UPDATE</code> ou <code>DELETE</code>. Il peut être déclenché <code>BEFORE</code> ou <code>AFTER</code> l'événement.</p>
+                    <p>Syntaxe de base (MySQL) :</p>
+                    <p><code>CREATE TRIGGER nom_trigger<br>AFTER UPDATE ON table_cible<br>FOR EACH ROW<br>BEGIN<br>&nbsp;&nbsp;INSERT INTO table_historique (id_ligne, ancienne_valeur, modifie_le, modifie_par)<br>&nbsp;&nbsp;VALUES (OLD.id, OLD.solde, NOW(), CURRENT_USER());<br>END;</code></p>
+                    <p>Dans un trigger <code>UPDATE</code> : <code>OLD.colonne</code> désigne la valeur avant modification, <code>NEW.colonne</code> la valeur après.</p>
+                    <p><strong>Cas d'usage en sécurité :</strong></p>
+                    <ul>
+                        <li><strong>Historisation (audit trail)</strong> : à chaque modification d'une ligne sensible, le trigger insère automatiquement dans une table d'historique l'ancienne valeur, la date et l'utilisateur SGBD → toute modification est traçable même si l'attaquant tente de la masquer.</li>
+                        <li><strong>Intégrité métier</strong> : refuser une modification qui violerait une règle métier non exprimable par une contrainte SQL standard (via <code>SIGNAL SQLSTATE</code>).</li>
+                        <li><strong>Journalisation des suppressions sensibles</strong> : archiver une ligne avant sa suppression définitive.</li>
+                    </ul>
+                    <p><strong>Attention</strong> : les triggers s'exécutent de manière transparente — ils peuvent compliquer le débogage et impacter les performances. Les documenter soigneusement.</p>
+                </div></div>
+            </div>
+
+        </div>
+
         <!-- Section 5.1 C : Frameworks, robustesse et tests -->
         <div class="sh"><h2>Frameworks, robustesse et tests</h2><div class="sh-line"></div><span class="sh-cnt">Code de qualité</span></div>
         <div class="grid-topics">
@@ -364,6 +415,34 @@ require '../includes/nav.php';
                         <li><strong>Accountability (Responsabilisation / Traçabilité)</strong> : enregistrer toutes les actions effectuées par les utilisateurs afin de pouvoir reconstituer les événements en cas d'incident et d'imputer les actions à leurs auteurs.</li>
                     </ul>
                     <p>La <strong>traçabilité des accès</strong> et la <strong>journalisation</strong> sont les piliers de l'Accountability : logs d'authentification (succès, échecs), logs d'accès aux ressources sensibles, logs d'administration, tous conservés de façon sécurisée et intègre.</p>
+                </div></div>
+            </div>
+
+            <div class="tc">
+                <div class="tc-head"><span class="tc-dot"></span>
+                    <h3>Procédure sécurisée de mot de passe oublié</h3>
+                    <span class="tc-chev">▼</span>
+                </div>
+                <div class="tc-body"><div class="tc-body-inner">
+                    <p>La réinitialisation de mot de passe est une cible privilégiée des attaquants : une mauvaise implémentation peut permettre de prendre le contrôle d'un compte <em>sans</em> connaître le mot de passe actuel.</p>
+                    <p><strong>Procédure sécurisée (OWASP recommandé) :</strong></p>
+                    <ol>
+                        <li><strong>L'utilisateur soumet son adresse email.</strong> Répondre <em>toujours</em> par le même message générique : <em>"Si un compte existe avec cette adresse, un email de réinitialisation a été envoyé."</em> — même si l'adresse est inconnue. Cela empêche l'<strong>énumération de comptes</strong> (savoir si un email est inscrit).</li>
+                        <li><strong>Générer un token cryptographiquement aléatoire</strong> : <code>random_bytes(32)</code> → encodé en hexadécimal (64 caractères). Imprévisible, de longueur suffisante.</li>
+                        <li><strong>Hacher le token avant de le stocker</strong> en base de données (un <code>SHA-256</code> suffit ici car c'est un token aléatoire, pas un mot de passe). Stocker aussi la date de création et l'ID utilisateur.</li>
+                        <li><strong>Envoyer par email le token en clair</strong> (ou l'URL complète de réinitialisation contenant le token). L'email est le canal de vérification de l'identité.</li>
+                        <li><strong>Durée de validité courte</strong> : 15 à 60 minutes maximum. Au-delà, le token est rejeté côté serveur : <code>WHERE created_at &gt; NOW() - INTERVAL 1 HOUR</code>.</li>
+                        <li><strong>Usage unique</strong> : dès que le token est utilisé (ou expiré), le supprimer de la base. Un token ne peut jamais servir deux fois.</li>
+                        <li><strong>Valider le nouveau mot de passe</strong> : longueur minimale, complexité, différent du précédent.</li>
+                        <li><strong>Invalider toutes les sessions actives</strong> après le changement de mot de passe (un attaquant qui aurait eu accès à la session est déconnecté).</li>
+                    </ol>
+                    <p><strong>Ce qu'il ne faut absolument pas faire :</strong></p>
+                    <ul>
+                        <li>Envoyer le mot de passe actuel par email → prouve qu'il n'est pas haché.</li>
+                        <li>Utiliser un token prévisible (timestamp, ID utilisateur, MD5 de l'email).</li>
+                        <li>Ne pas limiter la durée de validité du token.</li>
+                        <li>Permettre à un token d'être utilisé plusieurs fois.</li>
+                    </ul>
                 </div></div>
             </div>
 
@@ -793,6 +872,32 @@ require '../includes/nav.php';
                         <li><strong>CORS</strong> : configurer les en-têtes Cross-Origin pour n'autoriser que les domaines légitimes.</li>
                         <li><strong>Versionnement</strong> : permet de corriger des failles sans casser la rétrocompatibilité.</li>
                     </ul>
+                </div></div>
+            </div>
+
+            <div class="tc">
+                <div class="tc-head"><span class="tc-dot"></span>
+                    <h3>DELETE et PUT : opérations dangereuses dans les API REST</h3>
+                    <span class="tc-chev">▼</span>
+                </div>
+                <div class="tc-body"><div class="tc-body-inner">
+                    <p>Les verbes HTTP <strong>DELETE</strong> et <strong>PUT</strong> (ainsi que <strong>PATCH</strong>) ont un fort impact : suppression ou remplacement de données. Ils doivent être soumis à des contrôles stricts.</p>
+                    <p><strong>Risques spécifiques :</strong></p>
+                    <ul>
+                        <li><strong>DELETE sans vérification d'autorisation (IDOR)</strong> : n'importe quel utilisateur authentifié peut supprimer les ressources d'un autre. Ex : <code>DELETE /api/commandes/42</code> accessible à tout le monde.</li>
+                        <li><strong>PUT avec remplacement total non désiré</strong> : PUT remplace <em>l'intégralité</em> de la ressource — omettre un champ dans le body efface ce champ en base.</li>
+                        <li><strong>Mass assignment</strong> : si l'API accepte tous les champs JSON sans filtrage, un attaquant peut injecter des champs sensibles non prévus (<code>"role":"admin"</code>, <code>"solde":999999</code>).</li>
+                    </ul>
+                    <p><strong>Bonnes pratiques :</strong></p>
+                    <ul>
+                        <li><strong>Vérification d'autorisation systématique côté serveur</strong> : l'utilisateur est-il propriétaire ou habilité pour cette ressource précise ?</li>
+                        <li><strong>Soft delete plutôt que suppression physique</strong> pour les données importantes : colonne <code>deleted_at</code> → la ligne reste en base, la suppression est réversible et traçable.</li>
+                        <li><strong>Préférer PATCH à PUT</strong> pour les mises à jour partielles (seuls les champs envoyés sont modifiés, pas l'intégralité de la ressource).</li>
+                        <li><strong>Whitelist des champs modifiables</strong> : ne jamais binder directement le body JSON à l'ORM — filtrer explicitement les champs autorisés.</li>
+                        <li><strong>Idempotence</strong> : PUT et DELETE doivent être idempotents (plusieurs appels identiques → même résultat). GET, HEAD et OPTIONS ne doivent jamais avoir d'effet de bord.</li>
+                        <li><strong>Journaliser</strong> toutes les opérations DELETE et PUT/PATCH avec l'identité de l'appelant, la ressource ciblée et le timestamp.</li>
+                    </ul>
+                    <p><strong>Codes HTTP attendus :</strong> <code>200 OK</code> ou <code>204 No Content</code> pour un DELETE réussi · <code>403 Forbidden</code> si non autorisé · <code>404 Not Found</code> si la ressource n'existe pas (ne pas révéler l'existence d'une ressource à un utilisateur non autorisé · <code>405 Method Not Allowed</code> si le verbe est interdit sur cet endpoint).</p>
                 </div></div>
             </div>
 
